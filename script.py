@@ -38,10 +38,10 @@ class Fleet:
             while len(self.rides) > 0 and len(availableVehicles) > 0:
                 vehicle, ride = lop(availableVehicles, self.rides, ts, self.bonus)
                 
-                vehicle.addRide(ride)
+                vehicle.addRide(ts, ride)
                 availableVehicles.remove(vehicle)
                 self.rides.remove(ride)
-                         
+                     
     def __repr__(self):
         str_rep = "";
         for vehicle in self.vehicles:
@@ -50,6 +50,7 @@ class Fleet:
 
 class Vehicle:
     def __init__(self):
+        self.nextAvailable = 0
         self.rides = []
                     
     def loc(self):
@@ -60,13 +61,14 @@ class Vehicle:
     def availableAt(self, timestep):
         if len(self.rides) == 0:
             return True
-        if self.rides[-1].end[2] <= timestep:
+        if self.nextAvailable <= timestep:
             return True
         return False
         
-    def addRide(self, ride):
+    def addRide(self, ts, ride):
+        earliestStart = max(ts + distanceCalc(self.loc(), ride.start), ride.start[2])
+        self.nextAvailable = ride.getDistance()
         self.rides.append(ride)
-        self.rides.sort(key = lambda r: r.start[2])
 
     def __repr__(self):
         str_rep = str(len(self.rides))
@@ -123,4 +125,5 @@ if __name__ == "__main__":
     files = ['a_example', 'b_should_be_easy', 'c_no_hurry', 'd_metropolis', 'e_high_bonus']
     #files = ['a_example']
     for fn in files:
+        print(fn)
         main(fn)
