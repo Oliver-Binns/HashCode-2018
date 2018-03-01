@@ -1,3 +1,24 @@
+def lop(vehicles, rides, ts, bonus):
+    max_vehicle = vehicles[0]
+    max_ride = rides[0]
+    max_lop = 0
+    
+    for vehicle in vehicles:
+        for ride in rides:
+            vehicleToRideDistance = distanceCalc(vehicle.loc(), ride.start)
+    
+            temp_lop = ride.getDistance() - vehicleToRideDistance + bonus if ((vehicleToRideDistance + ts) <= ride.start[2]) else 0
+            
+            if (ts + vehicleToRideDistance + ride.getDistance()) >= ride.end[2]:
+                temp_lop = 0
+            
+            if temp_lop > max_lop:
+                max_lop = temp_lop
+                max_vehicle = vehicle
+                max_ride = ride
+            
+    return max_vehicle, max_ride
+            
 class Fleet:
     def __init__(self, patch, vehicles, bonus):
         self.patch = patch
@@ -8,15 +29,19 @@ class Fleet:
     def schedule(self, ride):
         self.rides.append(ride)
     
-    def arrange(self):
-        self.rides.sort(key = lambda r: r.getTimeLength(), reverse=True)
-        for ride in self.rides:
-            available = list(filter(lambda v: v.freeDuringTime(ride), self.vehicles))
-            available.sort(key = lambda v: v.distanceToRide(ride))
-            for vehicle in self.vehicles:
-                vehicle.addRide(ride)
-                break
+    def arrange(self, timesteps):
+        timestep = 0
+        
+        for ts in range(timesteps):
+            availableVehicles = list(filter(lambda v: v.availableAt(ts), self.vehicles))
+            
+            while len(self.rides) > 0 and len(availableVehicles) > 0:
+                vehicle, ride = lop(availableVehicles, self.rides, ts, self.bonus)
                 
+                vehicle.addRide(ride)
+                availableVehicles.remove(vehicle)
+                self.rides.remove(ride)
+                         
     def __repr__(self):
         str_rep = "";
         for vehicle in self.vehicles:
@@ -26,44 +51,18 @@ class Fleet:
 class Vehicle:
     def __init__(self):
         self.rides = []
-        
-    def getSurroundingRides(self, ride):
+                    
+    def loc(self):
         if len(self.rides) == 0:
-            return None, None
-        if len(self.rides) == 1:
-            if self.rides[0].end[2] <= ride.end[2]:
-                return self.rides[0], None
-            else:
-                return None, self.rides[0]
-                
-        for i in range(1, len(self.rides)):
-            prev = self.rides[i-1]
-            next = self.rides[i]
-            
-            if prev.end[2] <= ride.start[2]:
-                if next.start[2] >= ride.end[2]:
-                    return prev, next
+            return 0, 0
+        return self.rides[-1].end
         
-    def distanceToRide(self, ride):
-        rides = self.getSurroundingRides(ride)
-        x = 0
-        y = 0
-        
-        if rides != None and rides[0] != None:
-            x = rides[0].start[0]
-            y = rides[0].start[1]
-            
-        x_diff = (x - ride.start[0])
-        y_diff = (y - ride.start[1])
-        return abs(x_diff) + abs(y_diff)
-        
-    def freeDuringTime(self, ride):
-        rides = self.getSurroundingRides(ride)
-        if rides == None:
+    def availableAt(self, timestep):
+        if len(self.rides) == 0:
             return True
-        if rides[0] == None or rides[0].end[2] <= ride.start[2]:
-            if rides[1] == None or rides[1].start[2] >= ride.end[2]:
-                return True
+        if self.rides[-1].end[2] <= timestep:
+            return True
+        return False
         
     def addRide(self, ride):
         self.rides.append(ride)
@@ -81,12 +80,20 @@ class Ride:
         self.start = start
         self.end = end  
         
+    def getDistance(self):
+        return distanceCalc(self.start, self.end)
+    
     def getTimeLength(self):
         return self.end[2] - self.start[2]
               
     def __repr__(self):
         return str(self._id)
         
+
+def distanceCalc(start, end):
+    x = abs(start[0] - end[0])
+    y = abs(start[1] - end[1])
+    return x + y
 
 def fetchInts(l):
     return map(
@@ -97,7 +104,7 @@ def fetchInts(l):
 def main(fn):
     i_f = open('input/'+fn+'.in', 'r')
 
-    rows, cols, fleet, rides, bonus, _ = fetchInts(i_f.readline())
+    rows, cols, fleet, rides, bonus, timesteps = fetchInts(i_f.readline())
     fleet = Fleet((rows, cols), fleet, bonus)
 
     for index, line in enumerate(i_f):
@@ -107,7 +114,7 @@ def main(fn):
             (end_x, end_y, end_t)
         ))
     
-    fleet.arrange()
+    fleet.arrange(timesteps)
     outname = i_f.name.replace("in", "out")
     o_f = open(outname, "w")
     o_f.write(str(fleet))
