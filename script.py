@@ -11,11 +11,11 @@ class Fleet:
     def arrange(self):
         self.rides.sort(key = lambda r: r.getTimeLength(), reverse=True)
         for ride in self.rides:
-            self.vehicles.sort(key = lambda v: len(v.rides))
+            available = list(filter(lambda v: v.freeDuringTime(ride), self.vehicles))
+            available.sort(key = lambda v: v.distanceToRide(ride))
             for vehicle in self.vehicles:
-                if vehicle.freeDuringTime(ride.start[2], ride.end[2]):
-                    vehicle.addRide(ride)
-                    break
+                vehicle.addRide(ride)
+                break
                 
     def __repr__(self):
         str_rep = "";
@@ -27,18 +27,44 @@ class Vehicle:
     def __init__(self):
         self.rides = []
         
-    def freeDuringTime(self, start_time, end_time):
+    def getSurroundingRides(self, ride):
+        if len(self.rides) == 0:
+            return None, None
+        if len(self.rides) == 1:
+            if self.rides[0].end[2] <= ride.end[2]:
+                return self.rides[0], None
+            else:
+                return None, self.rides[0]
+                
         for i in range(1, len(self.rides)):
-            prev_ride = self.rides[i-1]
-            next_ride = self.rides[i]
+            prev = self.rides[i-1]
+            next = self.rides[i]
             
-            if prev_ride.end[2] <= start_time:
-                if next_ride.start[2] >= end_time:
-                    return True
-                else:
-                    return False
-        return True
-
+            if prev.end[2] <= ride.start[2]:
+                if next.start[2] >= ride.end[2]:
+                    return prev, next
+        
+    def distanceToRide(self, ride):
+        rides = self.getSurroundingRides(ride)
+        x = 0
+        y = 0
+        
+        if rides != None and rides[0] != None:
+            x = rides[0].start[0]
+            y = rides[0].start[1]
+            
+        x_diff = (x - ride.start[0])
+        y_diff = (y - ride.start[1])
+        return abs(x_diff) + abs(y_diff)
+        
+    def freeDuringTime(self, ride):
+        rides = self.getSurroundingRides(ride)
+        if rides == None:
+            return True
+        if rides[0] == None or rides[0].end[2] <= ride.start[2]:
+            if rides[1] == None or rides[1].start[2] >= ride.end[2]:
+                return True
+        
     def addRide(self, ride):
         self.rides.append(ride)
         self.rides.sort(key = lambda r: r.start[2])
